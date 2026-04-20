@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Structured Products — Risk Matrix Toolkit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #0f0f11;
+  --bg2: #161619;
+  --bg3: #1e1e22;
+  --bg4: #252529;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8e8ec;
+  --text2: #8a8a96;
+  --text3: #55555f;
+  --accent: #c8a96e;
+  --accent2: #e8c87a;
+  --red: #e05555;
+  --amber: #d4893a;
+  --green: #5a9e6f;
+  --red-bg: rgba(224,85,85,0.1);
+  --amber-bg: rgba(212,137,58,0.1);
+  --green-bg: rgba(90,158,111,0.1);
+  --red-text: #f09090;
+  --amber-text: #e8b06a;
+  --green-text: #8dc99e;
+  --font: 'DM Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* Layout */
+.app { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  padding: 24px 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar-logo {
+  padding: 0 20px 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.sidebar-logo .firm { font-size: 11px; font-weight: 500; color: var(--text3); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
+.sidebar-logo .title { font-size: 14px; font-weight: 500; color: var(--accent); line-height: 1.3; }
+.nav-section { padding: 0 12px; margin-bottom: 4px; }
+.nav-label { font-size: 10px; font-weight: 500; color: var(--text3); letter-spacing: .1em; text-transform: uppercase; padding: 8px 8px 4px; }
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px; border-radius: var(--radius);
+  color: var(--text2); font-size: 13px; cursor: pointer;
+  transition: all .15s; border: none; background: none;
+  width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--bg3); color: var(--text); }
+.nav-item.active { background: rgba(200,169,110,0.12); color: var(--accent); }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; opacity: .5; }
+.nav-item.active .nav-dot { opacity: 1; }
+.sidebar-footer { margin-top: auto; padding: 16px 20px 0; border-top: 1px solid var(--border); }
+.sidebar-footer p { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+.main { flex: 1; overflow: hidden; }
+.page { display: none; padding: 32px 40px; max-width: 960px; }
+.page.active { display: block; }
+
+/* Header */
+.page-header { margin-bottom: 28px; }
+.page-header h1 { font-size: 22px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.page-header p { font-size: 13px; color: var(--text2); }
+.breadcrumb { font-size: 11px; color: var(--text3); margin-bottom: 8px; font-family: var(--mono); }
+
+/* Cards */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+.card-title { font-size: 12px; font-weight: 500; color: var(--text2); letter-spacing: .05em; text-transform: uppercase; margin-bottom: 14px; }
+
+/* Metric grid */
+.metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.metric-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+.metric-label { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+.metric-val { font-size: 26px; font-weight: 300; color: var(--text); line-height: 1; }
+.metric-val span { font-size: 14px; color: var(--text2); }
+.metric-sub { font-size: 11px; color: var(--text2); margin-top: 6px; }
+
+/* Badges */
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+.badge-red { background: var(--red-bg); color: var(--red-text); }
+.badge-amber { background: var(--amber-bg); color: var(--amber-text); }
+.badge-green { background: var(--green-bg); color: var(--green-text); }
+.badge-accent { background: rgba(200,169,110,0.12); color: var(--accent2); }
+
+/* Asset class tabs */
+.ac-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+.ac-tab {
+  font-size: 12px; padding: 5px 14px; border-radius: 20px;
+  border: 1px solid var(--border2); background: transparent;
+  color: var(--text2); cursor: pointer; transition: all .15s;
+  font-family: var(--font);
+}
+.ac-tab:hover { border-color: rgba(200,169,110,0.3); color: var(--text); }
+.ac-tab.active { background: rgba(200,169,110,0.12); color: var(--accent2); border-color: rgba(200,169,110,0.3); }
+
+/* Section label */
+.section-label {
+  font-size: 10px; font-weight: 500; color: var(--text3);
+  letter-spacing: .1em; text-transform: uppercase;
+  margin: 20px 0 10px;
+}
+.section-label:first-child { margin-top: 0; }
+
+/* Range inputs */
+.factor-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.factor-label { font-size: 12px; color: var(--text2); width: 168px; flex-shrink: 0; }
+.factor-label small { display: block; font-size: 10px; color: var(--text3); }
+input[type=range] {
+  flex: 1; appearance: none; height: 3px; border-radius: 2px;
+  background: var(--bg4); outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--accent);
+  border: 2px solid var(--bg2); cursor: pointer;
+  transition: transform .1s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.factor-score { font-size: 13px; font-weight: 500; width: 24px; text-align: right; flex-shrink: 0; font-family: var(--mono); }
+
+/* Score bars */
+.score-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.score-bar-label { font-size: 12px; color: var(--text2); width: 175px; flex-shrink: 0; }
+.score-bar-track { flex: 1; height: 6px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
+.score-bar-num { font-size: 12px; font-weight: 500; width: 28px; text-align: right; font-family: var(--mono); flex-shrink: 0; }
+
+/* Rating pill */
+.rating-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+.r-invest { background: var(--green-bg); color: var(--green-text); }
+.r-watch { background: var(--amber-bg); color: var(--amber-text); }
+.r-avoid { background: var(--red-bg); color: var(--red-text); }
+
+/* Tables */
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.data-table th {
+  text-align: left; padding: 8px 10px;
+  font-size: 10px; font-weight: 500; color: var(--text3);
+  letter-spacing: .07em; text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+.data-table td {
+  padding: 9px 10px; border-bottom: 1px solid var(--border);
+  color: var(--text2); vertical-align: top; line-height: 1.5;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: rgba(255,255,255,0.02); }
+.data-table td:first-child { color: var(--text); font-weight: 500; }
+.td-red { color: var(--red-text) !important; font-weight: 500 !important; }
+.td-amber { color: var(--amber-text) !important; font-weight: 500 !important; }
+.td-green { color: var(--green-text) !important; font-weight: 500 !important; }
+
+/* Stress scenario cards */
+.scenario-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+.scenario-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 14px 16px;
+  cursor: pointer; transition: all .15s;
+}
+.scenario-card:hover { border-color: var(--border2); }
+.scenario-card.active { border-color: rgba(200,169,110,0.4); background: rgba(200,169,110,0.06); }
+.scenario-card .sc-title { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.scenario-card .sc-desc { font-size: 11px; color: var(--text3); line-height: 1.4; }
+
+/* Checklist */
+.dd-section { margin-bottom: 16px; }
+.dd-section-title {
+  font-size: 11px; font-weight: 500; color: var(--text3);
+  letter-spacing: .07em; text-transform: uppercase;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.dd-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .1s;
+}
+.dd-item:last-child { border-bottom: none; }
+.dd-item:hover { background: rgba(255,255,255,0.01); }
+.dd-check {
+  width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0;
+  border: 1px solid var(--border2); margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.dd-check.checked { background: rgba(90,158,111,0.2); border-color: rgba(90,158,111,0.5); }
+.dd-check.checked::after {
+  content: ''; display: block; width: 4px; height: 7px;
+  border-right: 1.5px solid var(--green-text);
+  border-bottom: 1.5px solid var(--green-text);
+  transform: rotate(45deg) translate(-1px,-1px);
+}
+.dd-text { font-size: 12px; color: var(--text2); line-height: 1.5; flex: 1; }
+.dd-text.checked { color: var(--text3); text-decoration: line-through; }
+
+/* Progress bar */
+.progress-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.progress-track { flex: 1; height: 4px; background: var(--bg4); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .3s ease; }
+.progress-label { font-size: 11px; color: var(--text3); white-space: nowrap; font-family: var(--mono); }
+
+/* Overview risk matrix */
+.matrix-wrap { overflow-x: auto; }
+.risk-matrix { border-collapse: collapse; width: 100%; font-size: 11px; }
+.risk-matrix th {
+  padding: 8px 10px; font-size: 10px; font-weight: 500;
+  color: var(--text3); letter-spacing: .07em; text-transform: uppercase;
+  border-bottom: 1px solid var(--border); background: var(--bg3); text-align: left;
+}
+.risk-matrix td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.risk-matrix td:first-child { color: var(--text); font-size: 12px; font-weight: 500; }
+.risk-matrix tr:hover td { background: rgba(255,255,255,0.02); }
+.risk-cell {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 500;
+  white-space: nowrap;
+}
+.rc-hh { background: rgba(224,85,85,0.15); color: #f09090; }
+.rc-mh { background: rgba(212,137,58,0.15); color: #e8b06a; }
+.rc-mm { background: rgba(212,137,58,0.1); color: #c89055; }
+.rc-lm { background: rgba(90,158,111,0.12); color: #8dc99e; }
+.rc-ll { background: rgba(90,158,111,0.08); color: #6aaa7e; }
+
+/* Weight sum */
+.wt-msg { font-size: 11px; margin-bottom: 16px; font-family: var(--mono); }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: var(--radius);
+  border: 1px solid var(--border2); background: transparent;
+  color: var(--text2); font-size: 12px; cursor: pointer;
+  font-family: var(--font); transition: all .15s;
+}
+.btn:hover { background: var(--bg3); color: var(--text); border-color: var(--border2); }
+.btn-accent { background: rgba(200,169,110,0.1); color: var(--accent2); border-color: rgba(200,169,110,0.25); }
+.btn-accent:hover { background: rgba(200,169,110,0.18); }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+
+/* Scenario params */
+.param-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.param-item { background: var(--bg3); border-radius: var(--radius); padding: 10px 14px; }
+.param-key { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 3px; }
+.param-val { font-size: 13px; font-weight: 500; color: var(--accent2); font-family: var(--mono); }
+
+/* Chart */
+.chart-wrap { position: relative; height: 260px; margin-bottom: 8px; }
+
+/* Taxonomy overview */
+.dim-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+.dim-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+.dim-card:first-child { grid-column: 1 / -1; }
+.dim-card .dim-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.dim-card .dim-sev { float: right; }
+.dim-card .dim-body { font-size: 12px; color: var(--text2); line-height: 1.5; margin-bottom: 8px; }
+.dim-card .dim-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.dim-tag { font-size: 10px; padding: 2px 7px; background: var(--bg4); border-radius: 3px; color: var(--text3); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 2px; }
+
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .page { padding: 20px; }
+  .metric-grid { grid-template-columns: repeat(2, 1fr); }
+  .scenario-grid { grid-template-columns: 1fr; }
+  .dim-grid { grid-template-columns: 1fr; }
+  .dim-card:first-child { grid-column: auto; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="firm">Private credit</div>
+    <div class="title">Structured Products<br>Risk Toolkit</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Framework</div>
+    <button class="nav-item active" onclick="showPage('overview')"><span class="nav-dot"></span>Taxonomy overview</button>
+    <button class="nav-item" onclick="showPage('scoring')"><span class="nav-dot"></span>Deal scoring</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Analysis</div>
+    <button class="nav-item" onclick="showPage('stress')"><span class="nav-dot"></span>Stress scenarios</button>
+    <button class="nav-item" onclick="showPage('checklist')"><span class="nav-dot"></span>Due diligence</button>
+    <button class="nav-item" onclick="showPage('matrix')"><span class="nav-dot"></span>Risk matrix</button>
+  </div>
+  <div class="sidebar-footer">
+    <p>Asset classes: RMBS · CMBS · Auto loans · Credit cards</p>
+  </div>
+</nav>
+
+<!-- Main content -->
+<main class="main">
+
+<!-- OVERVIEW -->
+<div id="page-overview" class="page active">
+  <div class="page-header">
+    <div class="breadcrumb">Framework / taxonomy</div>
+    <h1>Risk taxonomy overview</h1>
+    <p>Five dimensions covering structured product risk for RMBS, CMBS, auto loans, and credit cards.</p>
+  </div>
+  <div class="dim-grid" id="dim-cards"></div>
+  <div class="card">
+    <div class="card-title">Severity scale</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px"><span class="badge badge-red">High</span><span style="font-size:12px;color:var(--text2)">Material loss potential — requires structural mitigation</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="badge badge-amber">Medium</span><span style="font-size:12px;color:var(--text2)">Moderate exposure — monitor and covenant</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="badge badge-green">Low</span><span style="font-size:12px;color:var(--text2)">Manageable — standard diligence adequate</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCORING -->
+<div id="page-scoring" class="page">
+  <div class="page-header">
+    <div class="breadcrumb">Analysis / deal scoring</div>
+    <h1>Deal scoring model</h1>
+    <p>Rate each factor 0–10 (10 = best). Adjust weights to reflect your strategy and mandate.</p>
+  </div>
+  <div class="ac-tabs" id="ac-tabs">
+    <button class="ac-tab active" onclick="setAC('rmbs',this)">RMBS</button>
+    <button class="ac-tab" onclick="setAC('cmbs',this)">CMBS</button>
+    <button class="ac-tab" onclick="setAC('auto',this)">Auto loans</button>
+    <button class="ac-tab" onclick="setAC('card',this)">Credit cards</button>
+  </div>
+  <div class="metric-grid" id="score-summary"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card">
+      <div class="card-title">Dimension weights <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)">(sum to 100)</span></div>
+      <div id="weights-area"></div>
+      <div class="wt-msg" id="wt-sum-msg"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Factor scores</div>
+      <div id="score-inputs"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Factor breakdown — sorted by weakness</div>
+    <div id="score-bars"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Score distribution</div>
+    <div class="chart-wrap"><canvas id="radarChart" role="img" aria-label="Radar chart of factor scores"></canvas></div>
+  </div>
+</div>
+
+<!-- STRESS -->
+<div id="page-stress" class="page">
+  <div class="page-header">
+    <div class="breadcrumb">Analysis / stress scenarios</div>
+    <h1>Stress scenarios</h1>
+    <p>Six scenarios covering rate, credit, operational, and market stress. Select a scenario to see tranche-level impact.</p>
+  </div>
+  <div class="scenario-grid" id="scenario-btns"></div>
+  <div class="card">
+    <div class="card-title">Scenario parameters</div>
+    <div id="scenario-params" class="param-grid"></div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border)"><div class="card-title" style="margin:0">Impact by asset class &amp; tranche</div></div>
+    <div class="matrix-wrap">
+      <table class="data-table" id="impact-table">
+        <thead><tr><th>Asset class</th><th>Tranche</th><th>Expected loss delta</th><th>CE adequacy</th><th>Trigger risk</th><th>Recommendation</th></tr></thead>
+        <tbody id="impact-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKLIST -->
+<div id="page-checklist" class="page">
+  <div class="page-header">
+    <div class="breadcrumb">Analysis / due diligence</div>
+    <h1>Due diligence checklist</h1>
+    <p>34 items across 7 categories. Filter by asset class to see relevant items only.</p>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+    <div class="ac-tabs" id="dd-ac-tabs" style="margin-bottom:0">
+      <button class="ac-tab active" onclick="setDDAC('all',this)">All</button>
+      <button class="ac-tab" onclick="setDDAC('rmbs',this)">RMBS</button>
+      <button class="ac-tab" onclick="setDDAC('cmbs',this)">CMBS</button>
+      <button class="ac-tab" onclick="setDDAC('auto',this)">Auto</button>
+      <button class="ac-tab" onclick="setDDAC('card',this)">Cards</button>
+    </div>
+    <div style="min-width:160px">
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill" id="dd-progress-fill" style="width:0%"></div></div>
+        <span class="progress-label" id="dd-progress-txt">0 / 0</span>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="dd-list" style="padding:8px 20px 16px"></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn" onclick="clearDD()">Reset checklist</button>
+    <button class="btn btn-accent" onclick="exportDD()">Export open items</button>
+  </div>
+</div>
+
+<!-- RISK MATRIX -->
+<div id="page-matrix" class="page">
+  <div class="page-header">
+    <div class="breadcrumb">Framework / risk matrix</div>
+    <h1>Risk matrix</h1>
+    <p>Likelihood × impact by risk factor and asset class. Based on typical investment-grade structured product exposure.</p>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="matrix-wrap">
+      <table class="risk-matrix" id="full-matrix">
+        <thead><tr><th>Risk factor</th><th>RMBS</th><th>CMBS</th><th>Auto loans</th><th>Credit cards</th></tr></thead>
+        <tbody id="matrix-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Legend — likelihood × impact</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px">
+      <span style="display:flex;align-items:center;gap:6px"><span class="risk-cell rc-hh">High / High</span><span style="color:var(--text3)">Severe — requires mitigation</span></span>
+      <span style="display:flex;align-items:center;gap:6px"><span class="risk-cell rc-mh">Med / High</span><span style="color:var(--text3)">Elevated — structure around it</span></span>
+      <span style="display:flex;align-items:center;gap:6px"><span class="risk-cell rc-mm">Med / Med</span><span style="color:var(--text3)">Watch — covenant and monitor</span></span>
+      <span style="display:flex;align-items:center;gap:6px"><span class="risk-cell rc-lm">Low / Med</span><span style="color:var(--text3)">Standard diligence</span></span>
+      <span style="display:flex;align-items:center;gap:6px"><span class="risk-cell rc-ll">Low / Low</span><span style="color:var(--text3)">Minimal concern</span></span>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────
+const dims = [
+  {title:'Participant factors',sev:'core',body:'Quality, conduct, and stability of all transaction parties. Originator underwriting standards are the primary driver of pool quality; servicer performance governs recovery in stress.',tags:['Originator','Aggregator','Servicer','Geographic','Collateral']},
+  {title:'Collateral & asset class',sev:'High',body:'Underlying pool characteristics and historical performance. Each asset class carries distinct collateral risk — RMBS depends on HPA; CMBS on NOI; auto on vehicle values; cards are fully unsecured.',tags:['LTV / FICO / DTI','DSCR / NOI','Seasoning','Vintage curves','Loss severity']},
+  {title:'Structural factors',sev:'High',body:'Deal architecture, credit enhancement, waterfall mechanics, and performance triggers. The difference between a 4x and 6x CE level can mean the difference between adequate protection and trigger breach under a 3x stress scenario.',tags:['Waterfall / OC / OE','Subordination','Performance triggers','Excess spread','Revolving periods']},
+  {title:'Market & macro',sev:'High',body:'Systemic rate environment, home price and CRE valuation, and consumer credit cycle. Rate risk manifests differently by asset class — extension for RMBS, refi cliff for CMBS, APR compression for cards.',tags:['Rate / duration','HPA / cap rates','Prepayment / CPR','Spread widening','Credit cycle']},
+  {title:'Operational & legal',sev:'Medium',body:'Process quality, documentation integrity, and regulatory exposure. Bankruptcy remoteness is non-negotiable. Rep & warranty enforceability is only as good as the originator\'s balance sheet.',tags:['Bankruptcy remoteness','Rep & warranty','Regulatory / CFPB','Data quality','Transfer mechanics']}
+];
+
+const factors = [
+  {key:'originator',label:'Originator quality'},
+  {key:'aggregator',label:'Aggregator stability'},
+  {key:'servicer',label:'Servicer performance'},
+  {key:'geo',label:'Geographic concentration'},
+  {key:'collateral',label:'Collateral quality'},
+  {key:'credit',label:'Credit enhancement'},
+  {key:'structure',label:'Deal structure'},
+  {key:'market',label:'Market / rate risk'},
+  {key:'operational',label:'Operational / legal'}
+];
+
+const wtFactors = factors.filter(f=>f.key!=='credit');
+
+const acDefaults = {
+  rmbs:{originator:4,aggregator:6,servicer:5,geo:5,collateral:4,credit:5,structure:5,market:4,operational:6},
+  cmbs:{originator:6,aggregator:6,servicer:5,geo:4,collateral:4,credit:4,structure:5,market:5,operational:6},
+  auto:{originator:5,aggregator:7,servicer:6,geo:7,collateral:6,credit:6,structure:6,market:6,operational:7},
+  card:{originator:5,aggregator:7,servicer:5,geo:8,collateral:8,credit:5,structure:5,market:6,operational:6}
+};
+
+const wtDefaults = {
+  rmbs:{originator:25,aggregator:5,servicer:20,geo:10,collateral:15,structure:10,market:10,operational:5},
+  cmbs:{originator:20,aggregator:5,servicer:20,geo:15,collateral:15,structure:10,market:10,operational:5},
+  auto:{originator:20,aggregator:10,servicer:15,geo:5,collateral:15,structure:10,market:15,operational:10},
+  card:{originator:20,aggregator:10,servicer:20,geo:5,collateral:5,structure:10,market:20,operational:10}
+};
+
+const riskMatrix = [
+  {name:'Originator quality',rmbs:'rc-hh',cmbs:'rc-mh',auto:'rc-hh',card:'rc-hh'},
+  {name:'Servicer performance',rmbs:'rc-hh',cmbs:'rc-mh',auto:'rc-mh',card:'rc-hh'},
+  {name:'Geographic concentration',rmbs:'rc-mh',cmbs:'rc-hh',auto:'rc-lm',card:'rc-ll'},
+  {name:'Collateral credit quality',rmbs:'rc-hh',cmbs:'rc-hh',auto:'rc-mh',card:'rc-hh'},
+  {name:'Interest rate risk',rmbs:'rc-hh',cmbs:'rc-mh',auto:'rc-mm',card:'rc-mm'},
+  {name:'Performance triggers',rmbs:'rc-mh',cmbs:'rc-mh',auto:'rc-mm',card:'rc-mh'},
+  {name:'Prepayment / extension',rmbs:'rc-hh',cmbs:'rc-mm',auto:'rc-lm',card:'rc-ll'},
+  {name:'Bankruptcy remoteness',rmbs:'rc-mh',cmbs:'rc-mh',auto:'rc-mm',card:'rc-mm'},
+  {name:'Regulatory / legal',rmbs:'rc-mh',cmbs:'rc-mm',auto:'rc-mm',card:'rc-mh'}
+];
+
+const rcLabels = {
+  'rc-hh':'High / High','rc-mh':'Med / High',
+  'rc-mm':'Med / Med','rc-lm':'Low / Med','rc-ll':'Low / Low'
+};
+
+const scenarios = [
+  {id:'rate',title:'+300bps rate shock',params:{'Rate change':'+300bps','Mortgage rate':'~8.5%','SOFR':'+300bps','HPA impact':'-8%','Unemployment':'+1.2%','Timeline':'12 months'}},
+  {id:'hpa',title:'-20% home price decline',params:{'HPA':'-20% nationally','LTV uplift':'+15–25pts','Recovery rates':'-12pts','CMBS cap rate':'expansion +150bps','Affects':'RMBS primary','Timeline':'18 months'}},
+  {id:'recession',title:'Mild recession',params:{'Unemployment':'7.5% (+2.5pts)','GDP':'-1.5%','Card charge-offs':'+250bps','Auto defaults':'+180bps','Office vacancy':'+5pts','Timeline':'24 months'}},
+  {id:'servicer',title:'Servicer failure',params:{'Transfer timeline':'60–90 days','Advance disruption':'up to 3 months','DQ spike':'+300–500bps','Recovery delay':'+6–12 months','Affects':'All asset classes','Priority':'Backup servicer'}},
+  {id:'spread',title:'Spread widening +200bps',params:{'ABS/MBS spreads':'+200bps','WAL extension':'+1–2 yrs','MTM loss':'-8 to -15pts','Warehouse avail.':'-40%','New issuance':'Paused 60 days','Primary impact':'Funding costs'}},
+  {id:'combined',title:'Combined stress',params:{'Rate':'+250bps','HPA':'-12%','Unemployment':'7.0%','Card charge-offs':'+200bps','Auto defaults':'+150bps','Spread widening':'+150bps'}}
+];
+
+const impactData = {
+  rate:[
+    ['RMBS','AAA/AA','Low — short duration floaters protected','Adequate','Low','Hold; monitor ARM resets'],
+    ['RMBS','Mezz/BBB','Medium — extension risk elevated','Watch — HPA-driven CE erosion','Medium','Reduce exposure'],
+    ['CMBS','A/AAA','High — balloon refi risk at maturity','Watch — DSCR compression','High','Stress test each loan'],
+    ['CMBS','B-piece','Very high — refi cliff imminent','Inadequate likely','Very high','Exit or hedge'],
+    ['Auto','Senior','Low — short WAL limits exposure','Adequate','Low','Hold'],
+    ['Auto','Sub','Medium — higher defaults under APR stress','Watch','Medium','Monitor roll rates'],
+    ['Cards','Senior','Medium — APR compression vs. excess spread','Watch','Medium','Review ES triggers'],
+    ['Cards','Sub','High — excess spread trap likely','Potentially inadequate','High','Reduce or exit']
+  ],
+  hpa:[
+    ['RMBS','AAA','Low — high attachment point','Adequate','Low','Hold'],
+    ['RMBS','AA/A','Medium — LTV uplift stresses mezz','Watch — CE absorbs ~15pts','Medium','Stress-test LTV buckets'],
+    ['RMBS','BBB-','High — attachment point breached in tails','Likely inadequate','High','Exit mezz RMBS'],
+    ['CMBS','Super senior','Low — thick senior protection','Adequate','Low','Hold with monitoring'],
+    ['CMBS','A/BBB','High — DSCR + LTV double stress','Watch','High','Selective exposure only'],
+    ['CMBS','B-piece','Severe — first-loss class fully exposed','Inadequate','Very high','Immediate exit'],
+    ['Auto','All','Low — auto collateral independent of HPA','Adequate','Low','Hold'],
+    ['Cards','All','None — unsecured, no HPA linkage','N/A','Low','No action needed']
+  ],
+  recession:[
+    ['RMBS','Senior','Low — CE absorbs consumer stress','Adequate','Low','Hold'],
+    ['RMBS','Mezz','Medium — higher delinquency flow-through','Watch','Medium','Monitor triggers'],
+    ['CMBS','Office','Very high — structural vacancy increase','Inadequate','Very high','Exit office exposure'],
+    ['CMBS','Retail/Industrial','Medium — sector-specific resilience varies','Watch','Medium','Sector analysis required'],
+    ['Auto','Senior','Medium — default +180bps baseline','Adequate at current CE','Medium','Monitor CL triggers'],
+    ['Auto','Sub','High — subprime borrowers first hit','Watch threshold','High','Reduce subprime exposure'],
+    ['Cards','Senior','Medium — charge-offs +250bps','Watch — ES compression','Medium','Review payment rate'],
+    ['Cards','Sub/equity','High — excess spread trap likely','Potentially inadequate','High','Exit or hedge']
+  ],
+  servicer:[
+    ['RMBS','All','Medium — advance disruption delays P&I','Depends on backup quality','High','Verify backup servicer now'],
+    ['CMBS','All','High — special servicer key in distress','Depends on SS quality','High','Evaluate SS provisions'],
+    ['Auto','All','Medium — repossession pipeline paused','Adequate if transition <90d','Medium','Check transfer mechanics'],
+    ['Cards','All','High — billing/collections disruption','Watch — charge-off timing','High','Require backup servicer']
+  ],
+  spread:[
+    ['RMBS','Senior floater','Low credit impact — MTM loss only','Adequate','Low','MTM hedge if needed'],
+    ['RMBS','Fixed / long WAL','High MTM — duration penalty','Adequate','Low','Consider WAL limits'],
+    ['CMBS','All','High — primary market closure stresses refi','Watch','Medium','Focus on near-term maturities'],
+    ['Auto','Senior','Low — short duration, self-liquidating','Adequate','Low','Hold'],
+    ['Auto','Sub','Medium — warehouse/originator funding risk','Watch','Medium','Monitor originator health'],
+    ['Cards','Revolving','High — new receivable funding cost spikes','Watch','High','Monitor warehouse access']
+  ],
+  combined:[
+    ['RMBS','AAA','Medium — multiple stressors converge','Likely adequate','Medium','Hold; stress-test frequently'],
+    ['RMBS','Mezz/Sub','Severe — compound deterioration','Inadequate','Very high','Exit or significantly reduce'],
+    ['CMBS','Super senior','Medium — senior attachment buffer helps','Watch','Medium','Hold investment-grade only'],
+    ['CMBS','Mezz/B-piece','Severe — no buffer left','Inadequate','Very high','Exit immediately'],
+    ['Auto','Senior','Medium — short duration helps offset','Adequate','Medium','Hold with close monitoring'],
+    ['Cards','All','High — ES compression + credit cycle','Watch to inadequate','High','Reduce below senior classes']
+  ]
+};
+
+const ddItems = [
+  {id:'o1',cat:'originator',ac:['rmbs','cmbs','auto','card'],text:'Obtain 3 years of static pool data by vintage; request loan-level tape'},
+  {id:'o2',cat:'originator',ac:['rmbs','auto','card'],text:'Review CFPB / state regulatory examination history and enforcement actions'},
+  {id:'o3',cat:'originator',ac:['rmbs','cmbs','auto','card'],text:'Assess underwriting guidelines — confirm no material loosening in past 18 months'},
+  {id:'o4',cat:'originator',ac:['rmbs','auto','card'],text:'Confirm originator retains ≥5% risk retention (Dodd-Frank compliance)'},
+  {id:'o5',cat:'originator',ac:['cmbs'],text:'Review CMBS 3.0 B-piece retention and risk retention structure'},
+  {id:'a1',cat:'aggregator',ac:['rmbs','cmbs'],text:'Review warehouse line commitments, lenders, and availability'},
+  {id:'a2',cat:'aggregator',ac:['rmbs','auto','card'],text:'Analyze pool selection criteria and confirm no adverse selection bias'},
+  {id:'a3',cat:'aggregator',ac:['rmbs','cmbs','auto','card'],text:'Obtain rep & warranty framework; assess financial capacity to repurchase'},
+  {id:'s1',cat:'servicer',ac:['rmbs','cmbs','auto','card'],text:'Confirm primary servicer rating (Fitch/Moody\'s/S&P) is investment-grade equivalent'},
+  {id:'s2',cat:'servicer',ac:['rmbs','cmbs','auto','card'],text:'Verify backup servicer is named in indenture with clear transfer mechanics'},
+  {id:'s3',cat:'servicer',ac:['rmbs','auto'],text:'Review servicer advance obligations and advance recoverability analysis'},
+  {id:'s4',cat:'servicer',ac:['cmbs'],text:'Evaluate special servicer history, workout resolution rates, and fee structure'},
+  {id:'s5',cat:'servicer',ac:['rmbs','cmbs','auto','card'],text:'Obtain last 12 months of servicer reports; verify data quality and remittance timing'},
+  {id:'g1',cat:'geographic',ac:['rmbs'],text:'Compute state HHI; confirm no state exceeds 25% of pool balance'},
+  {id:'g2',cat:'geographic',ac:['rmbs'],text:'Map top-10 MSA concentration; cross-reference with FEMA flood and wildfire zones'},
+  {id:'g3',cat:'geographic',ac:['cmbs'],text:'Identify single-market deals; run market-specific cap rate and vacancy stress'},
+  {id:'g4',cat:'geographic',ac:['rmbs','cmbs'],text:'Review state foreclosure timelines for top-5 states; adjust loss severity accordingly'},
+  {id:'c1',cat:'collateral',ac:['rmbs'],text:'Run full loan-level underwriting tape: LTV, FICO, DTI, occupancy, ARM vs fixed'},
+  {id:'c2',cat:'collateral',ac:['cmbs'],text:'Obtain property-level rent rolls, T12 NOI statements, and appraisal reports'},
+  {id:'c3',cat:'collateral',ac:['auto'],text:'Analyze vehicle age, new vs used mix, LTV at origination, term structure'},
+  {id:'c4',cat:'collateral',ac:['card'],text:'Review APR distribution, utilization rates, payment rate history, and charge-off seasoning'},
+  {id:'c5',cat:'collateral',ac:['rmbs','cmbs','auto','card'],text:'Run vintage analysis: cumulative loss curves vs. historical base case'},
+  {id:'c6',cat:'collateral',ac:['rmbs','auto','card'],text:'Review delinquency roll rate matrix: 30→60→90→loss transitions'},
+  {id:'st1',cat:'structural',ac:['rmbs','cmbs','auto','card'],text:'Model waterfall under base, stress, and severe stress scenarios (3x, 5x loss)'},
+  {id:'st2',cat:'structural',ac:['rmbs','cmbs','auto','card'],text:'Verify credit enhancement (OC, subordination, reserve) against rating agency threshold'},
+  {id:'st3',cat:'structural',ac:['rmbs','cmbs','auto','card'],text:'Map all performance triggers: delinquency, CL, excess spread step-downs'},
+  {id:'st4',cat:'structural',ac:['rmbs','cmbs','auto','card'],text:'Review clean-up call provisions and extension risk analysis for target tranche'},
+  {id:'st5',cat:'structural',ac:['auto','card'],text:'Analyze revolving period terms: eligibility criteria, purchase obligation, early amortization triggers'},
+  {id:'st6',cat:'structural',ac:['card'],text:'Model excess spread compression under +300bps rate scenario and payment rate stress'},
+  {id:'l1',cat:'legal',ac:['rmbs','cmbs','auto','card'],text:'Obtain and review true sale and non-consolidation opinions from deal counsel'},
+  {id:'l2',cat:'legal',ac:['rmbs','cmbs','auto','card'],text:'Review SPV structure: confirm bankruptcy remoteness from originator insolvency'},
+  {id:'l3',cat:'legal',ac:['rmbs','auto','card'],text:'Confirm TILA/RESPA/TRID compliance across origination platform'},
+  {id:'l4',cat:'legal',ac:['auto','card'],text:'Review UDAP, MLA (military lending), SCRA compliance; check for class action exposure'}
+];
+
+const ddCats = [
+  {key:'originator',label:'Originator'},
+  {key:'aggregator',label:'Aggregator'},
+  {key:'servicer',label:'Servicer'},
+  {key:'geographic',label:'Geographic'},
+  {key:'collateral',label:'Collateral'},
+  {key:'structural',label:'Structural'},
+  {key:'legal',label:'Legal / operational'}
+];
+
+// ─── STATE ──────────────────────────────────────────────────────────────
+let currentAC = 'rmbs';
+let ddAC = 'all';
+let ddChecked = {};
+let currentScenario = 'rate';
+let weights = JSON.parse(JSON.stringify(wtDefaults));
+let scores = JSON.parse(JSON.stringify(acDefaults));
+let radarChart = null;
+
+// ─── NAVIGATION ─────────────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if(n.getAttribute('onclick') && n.getAttribute('onclick').includes("'"+id+"'")) n.classList.add('active');
+  });
+}
+
+// ─── OVERVIEW ───────────────────────────────────────────────────────────
+function renderOverview() {
+  const sevMap = {High:'badge-red',Medium:'badge-amber',Low:'badge-green',core:'badge-accent'};
+  document.getElementById('dim-cards').innerHTML = dims.map(d => `
+    <div class="dim-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div class="dim-title">${d.title}</div>
+        ${d.sev !== 'core' ? `<span class="badge ${sevMap[d.sev]||'badge-accent'}">${d.sev}</span>` : ''}
+      </div>
+      <div class="dim-body">${d.body}</div>
+      <div class="dim-tags">${d.tags.map(t=>`<span class="dim-tag">${t}</span>`).join('')}</div>
+    </div>
+  `).join('');
+}
+
+// ─── SCORING ────────────────────────────────────────────────────────────
+function setAC(ac, btn) {
+  currentAC = ac;
+  document.querySelectorAll('#ac-tabs .ac-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderScoring();
+}
+
+function computeScore() {
+  const sc = scores[currentAC];
+  const wt = weights[currentAC];
+  const sum = wtFactors.reduce((a,f) => a+(wt[f.key]||0), 0);
+  if(!sum) return 0;
+  return wtFactors.reduce((a,f) => a+(sc[f.key]||0)*(wt[f.key]||0), 0) / sum;
+}
+
+function scoreRating(s) {
+  if(s>=7) return {label:'Invest',cls:'r-invest'};
+  if(s>=5) return {label:'Watch list',cls:'r-watch'};
+  return {label:'Pass / avoid',cls:'r-avoid'};
+}
+
+function renderScoring() {
+  renderWeights();
+  renderInputs();
+  renderSummary();
+  renderBars();
+  renderRadar();
+}
+
+function renderWeights() {
+  const wts = weights[currentAC];
+  document.getElementById('weights-area').innerHTML = wtFactors.map(f => `
+    <div class="factor-row">
+      <span class="factor-label">${f.label}</span>
+      <input type="range" min="0" max="50" step="1" value="${wts[f.key]||0}" oninput="updateWeight('${f.key}',+this.value)">
+      <span class="factor-score" id="wv-${f.key}" style="color:var(--accent2)">${wts[f.key]||0}%</span>
+    </div>
+  `).join('');
+  updateWtSum();
+}
+
+function updateWeight(key, val) {
+  weights[currentAC][key] = val;
+  document.getElementById('wv-'+key).textContent = val+'%';
+  updateWtSum(); renderSummary(); renderBars(); renderRadar();
+}
+
+function updateWtSum() {
+  const sum = wtFactors.reduce((a,f) => a+(weights[currentAC][f.key]||0), 0);
+  const el = document.getElementById('wt-sum-msg');
+  el.textContent = 'Total: '+sum+'% '+(sum===100?'— balanced':(sum<100?'— '+(100-sum)+'% unallocated':'— '+(sum-100)+'% over'));
+  el.style.color = sum===100?'var(--green-text)':sum>100?'var(--red-text)':'var(--amber-text)';
+}
+
+function renderInputs() {
+  const sc = scores[currentAC];
+  document.getElementById('score-inputs').innerHTML = factors.map(f => {
+    const v = sc[f.key];
+    const col = v>=7?'var(--green-text)':v>=4?'var(--amber-text)':'var(--red-text)';
+    return `<div class="factor-row">
+      <span class="factor-label">${f.label}</span>
+      <input type="range" min="0" max="10" step="1" value="${v}" oninput="updateScore('${f.key}',+this.value)">
+      <span class="factor-score" id="sv-${f.key}" style="color:${col}">${v}</span>
+    </div>`;
+  }).join('');
+}
+
+function updateScore(key, val) {
+  scores[currentAC][key] = val;
+  const col = val>=7?'var(--green-text)':val>=4?'var(--amber-text)':'var(--red-text)';
+  const el = document.getElementById('sv-'+key);
+  if(el){el.textContent=val; el.style.color=col;}
+  renderSummary(); renderBars(); renderRadar();
+}
+
+function renderSummary() {
+  const s = computeScore();
+  const r = scoreRating(s);
+  const sc = scores[currentAC];
+  const sorted = [...factors].sort((a,b) => (sc[a.key]||0)-(sc[b.key]||0));
+  const weakest = sorted[0];
+  const strongest = sorted[sorted.length-1];
+  document.getElementById('score-summary').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Composite score</div><div class="metric-val">${s.toFixed(1)}<span>/10</span></div><div class="metric-sub"><span class="rating-pill ${r.cls}">${r.label}</span></div></div>
+    <div class="metric-card"><div class="metric-label">Weakest factor</div><div class="metric-val" style="font-size:16px;line-height:1.2">${weakest.label}</div><div class="metric-sub">${sc[weakest.key]||0}/10</div></div>
+    <div class="metric-card"><div class="metric-label">Strongest factor</div><div class="metric-val" style="font-size:16px;line-height:1.2">${strongest.label}</div><div class="metric-sub">${sc[strongest.key]||0}/10</div></div>
+    <div class="metric-card"><div class="metric-label">Asset class</div><div class="metric-val" style="font-size:20px">${currentAC.toUpperCase()}</div><div class="metric-sub">${factors.length} factors rated</div></div>
+  `;
+}
+
+function renderBars() {
+  const sc = scores[currentAC];
+  const wt = weights[currentAC];
+  const sorted = [...factors].sort((a,b) => (sc[a.key]||0)-(sc[b.key]||0));
+  document.getElementById('score-bars').innerHTML = sorted.map(f => {
+    const v = sc[f.key]||0;
+    const col = v>=7?'#5a9e6f':v>=4?'#d4893a':'#e05555';
+    const wtv = wt[f.key]||0;
+    return `<div class="score-bar-row">
+      <span class="score-bar-label">${f.label}${wtv?` <span style="color:var(--text3);font-size:10px">wt:${wtv}%</span>`:'<span style="color:var(--text3);font-size:10px"> unweighted</span>'}</span>
+      <div class="score-bar-track"><div class="score-bar-fill" style="width:${v*10}%;background:${col}"></div></div>
+      <span class="score-bar-num" style="color:${col}">${v}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderRadar() {
+  const sc = scores[currentAC];
+  const labels = factors.map(f => f.label);
+  const data = factors.map(f => sc[f.key]||0);
+  if(radarChart) { radarChart.data.datasets[0].data = data; radarChart.update(); return; }
+  const ctx = document.getElementById('radarChart').getContext('2d');
+  radarChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels,
+      datasets:[{
+        label: currentAC.toUpperCase(),
+        data,
+        borderColor: '#c8a96e',
+        backgroundColor: 'rgba(200,169,110,0.08)',
+        pointBackgroundColor: '#c8a96e',
+        pointBorderColor: '#1e1e22',
+        pointRadius: 4,
+        borderWidth: 1.5
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        r: {
+          min: 0, max: 10, ticks: { stepSize: 2, color: '#55555f', font: { size: 10, family: 'DM Mono' }, backdropColor: 'transparent' },
+          grid: { color: 'rgba(255,255,255,0.06)' },
+          angleLines: { color: 'rgba(255,255,255,0.06)' },
+          pointLabels: { color: '#8a8a96', font: { size: 11, family: 'DM Sans' } }
+        }
+      }
+    }
+  });
+}
+
+// ─── STRESS ─────────────────────────────────────────────────────────────
+function renderStress() {
+  document.getElementById('scenario-btns').innerHTML = scenarios.map(s => `
+    <div class="scenario-card${s.id===currentScenario?' active':''}" onclick="setScenario('${s.id}')">
+      <div class="sc-title">${s.title}</div>
+    </div>
+  `).join('');
+  renderScenarioDetail();
+}
+
+function setScenario(id) {
+  currentScenario = id;
+  document.querySelectorAll('.scenario-card').forEach((c,i) => {
+    c.classList.toggle('active', scenarios[i].id===id);
+  });
+  renderScenarioDetail();
+}
+
+function renderScenarioDetail() {
+  const s = scenarios.find(x => x.id===currentScenario);
+  document.getElementById('scenario-params').innerHTML = Object.entries(s.params).map(([k,v]) => `
+    <div class="param-item"><div class="param-key">${k}</div><div class="param-val">${v}</div></div>
+  `).join('');
+  const rows = impactData[currentScenario]||[];
+  document.getElementById('impact-body').innerHTML = rows.map(r => {
+    const ce = r[3].toLowerCase();
+    const ceClass = ce.includes('inad')?'td-red':ce.includes('watch')||ce.includes('n/a')?'td-amber':'';
+    const tri = r[4].toLowerCase();
+    const triClass = tri.includes('very')||tri.includes('high')?'td-red':tri.includes('medium')?'td-amber':'';
+    return `<tr>
+      <td>${r[0]}</td>
+      <td><span class="badge badge-accent">${r[1]}</span></td>
+      <td>${r[2]}</td>
+      <td class="${ceClass}">${r[3]}</td>
+      <td class="${triClass}">${r[4]}</td>
+      <td style="font-size:11px;color:var(--text3)">${r[5]}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── CHECKLIST ──────────────────────────────────────────────────────────
+function setDDAC(ac, btn) {
+  ddAC = ac;
+  document.querySelectorAll('#dd-ac-tabs .ac-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderChecklist();
+}
+
+function toggleDD(id) { ddChecked[id] = !ddChecked[id]; renderChecklist(); }
+function clearDD() { ddChecked = {}; renderChecklist(); }
+
+function renderChecklist() {
+  const filtered = ddAC==='all' ? ddItems : ddItems.filter(i => i.ac.includes(ddAC));
+  const done = filtered.filter(i => ddChecked[i.id]).length;
+  const total = filtered.length;
+  document.getElementById('dd-progress-fill').style.width = total ? Math.round(done/total*100)+'%' : '0%';
+  document.getElementById('dd-progress-txt').textContent = done+' / '+total;
+  let html = '';
+  ddCats.forEach(cat => {
+    const items = filtered.filter(i => i.cat===cat.key);
+    if(!items.length) return;
+    html += `<div class="dd-section"><div class="dd-section-title">${cat.label}</div>`;
+    items.forEach(item => {
+      const ck = ddChecked[item.id];
+      html += `<div class="dd-item" onclick="toggleDD('${item.id}')"><div class="dd-check${ck?' checked':''}"></div><span class="dd-text${ck?' checked':''}">${item.text}</span></div>`;
+    });
+    html += '</div>';
+  });
+  document.getElementById('dd-list').innerHTML = html;
+}
+
+function exportDD() {
+  const filtered = ddAC==='all' ? ddItems : ddItems.filter(i => i.ac.includes(ddAC));
+  const open = filtered.filter(i => !ddChecked[i.id]);
+  if(!open.length) { alert('All items complete!'); return; }
+  const text = 'OUTSTANDING DUE DILIGENCE ITEMS\n'+'='.repeat(40)+'\n\n'+
+    ddCats.map(cat => {
+      const items = open.filter(i => i.cat===cat.key);
+      if(!items.length) return '';
+      return cat.label.toUpperCase()+'\n'+items.map(i => '  - '+i.text).join('\n');
+    }).filter(Boolean).join('\n\n');
+  const blob = new Blob([text], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'outstanding-dd-items.txt';
+  a.click();
+}
+
+// ─── RISK MATRIX ────────────────────────────────────────────────────────
+function renderMatrix() {
+  document.getElementById('matrix-body').innerHTML = riskMatrix.map(r => `
+    <tr>
+      <td>${r.name}</td>
+      <td><span class="risk-cell ${r.rmbs}">${rcLabels[r.rmbs]}</span></td>
+      <td><span class="risk-cell ${r.cmbs}">${rcLabels[r.cmbs]}</span></td>
+      <td><span class="risk-cell ${r.auto}">${rcLabels[r.auto]}</span></td>
+      <td><span class="risk-cell ${r.card}">${rcLabels[r.card]}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────
+renderOverview();
+renderScoring();
+renderStress();
+renderChecklist();
+renderMatrix();
+</script>
+</body>
+</html>
